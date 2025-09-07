@@ -24,7 +24,8 @@ import {
   Refresh, 
   Info,
   ClearAll,
-  Warning
+  Warning,
+  Print
 } from '@mui/icons-material';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
@@ -259,6 +260,154 @@ const ShiftBoard = () => {
     return availability;
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    const weekStartDate = new Date(selectedWeek);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 4);
+    
+    const formatDate = (date) => {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    };
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Shift Allocation - Week of ${formatDate(weekStartDate)}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #007a68; 
+              padding-bottom: 20px;
+            }
+            .week-info { 
+              font-size: 18px; 
+              color: #007a68; 
+              margin-bottom: 10px;
+            }
+            .summary { 
+              margin-bottom: 30px; 
+              padding: 15px; 
+              background-color: #f5f5f5; 
+              border-radius: 5px;
+            }
+            .shifts-table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 20px;
+            }
+            .shifts-table th, .shifts-table td { 
+              border: 1px solid #ddd; 
+              padding: 12px; 
+              text-align: left;
+            }
+            .shifts-table th { 
+              background-color: #007a68; 
+              color: white; 
+              font-weight: bold;
+            }
+            .shifts-table tr:nth-child(even) { 
+              background-color: #f9f9f9;
+            }
+            .day-header { 
+              background-color: #94BEB8; 
+              color: white; 
+              font-weight: bold;
+            }
+            .no-shifts { 
+              text-align: center; 
+              color: #666; 
+              font-style: italic;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Shift Allocation Board</h1>
+            <div class="week-info">
+              Week of ${formatDate(weekStartDate)} - ${formatDate(weekEndDate)}
+            </div>
+          </div>
+          
+          <div class="summary">
+            <h3>Summary</h3>
+            <p><strong>Total Shifts Allocated:</strong> ${shifts.length}</p>
+            <p><strong>Unassigned Employees:</strong> ${getUnassignedEmployees().length}</p>
+            <p><strong>Total Employees:</strong> ${employees.filter(emp => emp.Status === 'Active').length}</p>
+          </div>
+
+          <table class="shifts-table">
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Time</th>
+                <th>Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${days.map(day => {
+                const dayShifts = getShiftsForDay(day);
+                if (dayShifts.length === 0) {
+                  return `
+                    <tr>
+                      <td class="day-header">${day}</td>
+                      <td colspan="5" class="no-shifts">No shifts allocated</td>
+                    </tr>
+                  `;
+                }
+                return dayShifts.map((shift, index) => {
+                  const startHour = parseFloat(shift.startTime.split(':')[0]) + (parseFloat(shift.startTime.split(':')[1]) / 60);
+                  const endHour = parseFloat(shift.endTime.split(':')[0]) + (parseFloat(shift.endTime.split(':')[1]) / 60);
+                  const hours = endHour - startHour;
+                  
+                  return `
+                    <tr>
+                      ${index === 0 ? `<td rowspan="${dayShifts.length}" class="day-header">${day}</td>` : ''}
+                      <td>${shift.employeeName}</td>
+                      <td>${shift.department}</td>
+                      <td>${shift.role}</td>
+                      <td>${shift.startTime} - ${shift.endTime}</td>
+                      <td>${hours.toFixed(1)}h</td>
+                    </tr>
+                  `;
+                }).join('');
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 30px; font-size: 12px; color: #666;">
+            <p>Generated on ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   return (
@@ -376,6 +525,27 @@ const ShiftBoard = () => {
               }}
             >
               Reset All
+            </Button>
+          </Tooltip>
+          <Tooltip title="Print shift allocation report">
+            <Button
+              variant="outlined"
+              startIcon={<Print />}
+              onClick={handlePrint}
+              sx={{ 
+                minWidth: 120,
+                height: 44,
+                borderRadius: 2,
+                borderColor: '#007a68',
+                color: '#007a68',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 122, 104, 0.08)',
+                  borderColor: '#005a4a',
+                  color: '#005a4a'
+                }
+              }}
+            >
+              Print
             </Button>
           </Tooltip>
         </Box>
